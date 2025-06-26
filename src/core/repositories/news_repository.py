@@ -78,3 +78,9 @@ class NewsRepository:
     def get_articles_since(self, cutoff_time: datetime) -> List[Article]:
         """Get articles created since a specific datetime"""
         return self.articles.get_articles_since(cutoff_time)
+
+    def get_articles_from_active_feeds_since(
+        self, cutoff_time: datetime
+    ) -> List[Article]:
+        """Get articles from active feeds created since a specific datetime"""
+        return self.articles.get_articles_from_active_feeds_since(cutoff_time)

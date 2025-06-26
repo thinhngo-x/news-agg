@@ -2,8 +2,8 @@
 La Une (Front Page) UI component for the News Aggregator.
 
 This module provides the user interface for displaying a comprehensive
-daily summary of all news articles fetched in the last 24 hours as a
-single cohesive text, rather than individual article listings.
+daily summary of all news articles from active feeds fetched in the last 24 hours
+as a single cohesive text, rather than individual article listings.
 """
 
 import streamlit as st
@@ -24,6 +24,7 @@ def render_la_une_page(
 ) -> None:
     """
     Render the La Une (Front Page) interface - A comprehensive daily news summary
+    from active feeds only
 
     Args:
         feed_manager: Feed manager service instance
@@ -31,14 +32,14 @@ def render_la_une_page(
         config: Configuration manager instance
     """
     st.header("📰 La Une - Daily News Summary")
-    st.subheader("Your comprehensive daily news digest in one text")
+    st.subheader("Your comprehensive daily news digest from active feeds")
 
-    # Get recent articles (last 24 hours)
-    recent_articles = feed_manager.get_recent_articles(hours=24)
+    # Get recent articles from active feeds only (last 24 hours)
+    recent_articles = feed_manager.get_recent_articles_from_active_feeds(hours=24)
 
     if not recent_articles:
         st.info(
-            "🔍 No articles found in the last 24 hours. Try updating your feeds first!"
+            "🔍 No articles found from active feeds in the last 24 hours. Try updating your active feeds first!"
         )
         if st.button("🔄 Update All Feeds", type="primary", use_container_width=True):
             with st.spinner("Updating feeds..."):
@@ -133,7 +134,7 @@ def render_la_une_page(
         col1, col2, col3 = st.columns([2, 1, 1])
         with col1:
             st.caption(
-                f"📊 Based on {summary_data['article_count']} articles from {summary_data['sources_count']} sources"
+                f"📊 Based on {summary_data['article_count']} articles from {summary_data['sources_count']} active sources"
             )
         with col2:
             generated_time = summary_data["generated_at"].strftime("%H:%M")
@@ -180,7 +181,7 @@ def render_la_une_page(
         with st.container():
             st.markdown("### 📋 Ready to Summarize")
             st.write(
-                f"**{len(recent_articles)} articles** from **{len(set(a.feed_url for a in recent_articles))} sources** are ready to be summarized into your daily digest."
+                f"**{len(recent_articles)} articles** from **{len(set(a.feed_url for a in recent_articles))} active sources** are ready to be summarized into your daily digest."
             )
 
             # Show top sources preview
@@ -260,7 +261,7 @@ def generate_comprehensive_daily_summary(
         combined_content = "\n\n---\n\n".join(articles_content)
 
         # Create an enhanced prompt for daily summary focused on cohesive narrative
-        prompt = f"""You are a professional news editor creating a comprehensive daily digest. Based on the {len(articles)} articles from the last 24 hours below, create a single, cohesive narrative summary that flows naturally from topic to topic.
+        prompt = f"""You are a professional news editor creating a comprehensive daily digest. Based on the {len(articles)} articles from active news feeds in the last 24 hours below, create a single, cohesive narrative summary that flows naturally from topic to topic.
 
 Requirements:
 1. Write as ONE continuous text (not bullet points or sections)

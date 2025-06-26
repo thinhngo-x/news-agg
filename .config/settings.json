@@ -1,6 +1,6 @@
 {
   "database": {
-    "url": "sqlite:////tmp/tmpjnu9newq/test_news_aggregator.db",
+    "url": "sqlite:///data/news_aggregator.db",
     "backup_enabled": true,
     "backup_interval": 86400
   },

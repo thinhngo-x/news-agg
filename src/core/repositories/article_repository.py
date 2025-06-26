@@ -9,7 +9,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy import or_, text
 from datetime import datetime
 
-from ..models import Article, ArticleStatus
+from ..models import Article, ArticleStatus, Feed, FeedStatus
 from .base import BaseRepository
 from .exceptions import DatabaseError
 
@@ -240,3 +240,24 @@ class ArticleRepository(BaseRepository):
         except SQLAlchemyError as e:
             logger.error(f"Error getting articles since {cutoff_time}: {e}")
             raise DatabaseError(f"Failed to get articles: {e}")
+
+    def get_articles_from_active_feeds_since(
+        self, cutoff_time: datetime
+    ) -> List[Article]:
+        """Get articles from active feeds created since a specific datetime"""
+        try:
+            with self.get_session() as session:
+                # Join with Feed table to filter by active status
+                statement = (
+                    select(Article)
+                    .join(Feed, Article.feed_url == Feed.url)
+                    .where(Article.created_at >= cutoff_time)
+                    .where(Feed.status == FeedStatus.ACTIVE)
+                    .order_by(text("articles.created_at DESC"))
+                )
+                return list(session.exec(statement))
+        except SQLAlchemyError as e:
+            logger.error(
+                f"Error getting articles from active feeds since {cutoff_time}: {e}"
+            )
+            raise DatabaseError(f"Failed to get articles from active feeds: {e}")

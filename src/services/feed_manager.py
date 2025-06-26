@@ -381,3 +381,20 @@ class FeedManager:
         except Exception as e:
             self.logger.error(f"Error fetching recent articles: {e}")
             return []
+
+    def get_recent_articles_from_active_feeds(self, hours: int = 24) -> List[Article]:
+        """
+        Get recent articles from active feeds only within the last N hours
+
+        Args:
+            hours: Number of hours to look back (default: 24)
+
+        Returns:
+            List[Article]: List of recent article objects from active feeds only
+        """
+        try:
+            cutoff_time = datetime.now() - timedelta(hours=hours)
+            return self.repository.get_articles_from_active_feeds_since(cutoff_time)
+        except Exception as e:
+            self.logger.error(f"Error fetching recent articles from active feeds: {e}")
+            return []
