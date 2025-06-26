@@ -1,8 +1,9 @@
 """
 La Une (Front Page) UI component for the News Aggregator.
 
-This module provides the user interface for displaying a daily summary
-of all news articles fetched in the last 24 hours.
+This module provides the user interface for displaying a comprehensive
+daily summary of all news articles fetched in the last 24 hours as a
+single cohesive text, rather than individual article listings.
 """
 
 import streamlit as st
@@ -30,7 +31,7 @@ def render_la_une_page(
         config: Configuration manager instance
     """
     st.header("📰 La Une - Daily News Summary")
-    st.subheader("Today's News at a Glance")
+    st.subheader("Your comprehensive daily news digest in one text")
 
     # Get recent articles (last 24 hours)
     recent_articles = feed_manager.get_recent_articles(hours=24)
@@ -39,7 +40,7 @@ def render_la_une_page(
         st.info(
             "🔍 No articles found in the last 24 hours. Try updating your feeds first!"
         )
-        if st.button("🔄 Update All Feeds"):
+        if st.button("🔄 Update All Feeds", type="primary", use_container_width=True):
             with st.spinner("Updating feeds..."):
                 results = feed_manager.update_all_feeds()
                 st.success(
@@ -48,7 +49,7 @@ def render_la_une_page(
                 st.rerun()
         return
 
-    # Display basic metrics
+    # Display basic metrics in a compact row
     col1, col2, col3, col4 = st.columns(4)
 
     with col1:
@@ -81,7 +82,8 @@ def render_la_une_page(
     # Check if we already have a daily summary
     daily_summary_key = f"daily_summary_{datetime.now().strftime('%Y-%m-%d')}"
 
-    col1, col2 = st.columns([3, 1])
+    # Action buttons
+    col1, col2, col3 = st.columns([2, 1, 1])
 
     with col1:
         if st.button(
@@ -98,6 +100,7 @@ def render_la_une_page(
                         "summary": daily_summary,
                         "generated_at": datetime.now(),
                         "article_count": len(recent_articles),
+                        "sources_count": unique_feeds,
                     }
                     st.success("Daily summary generated!")
                     st.rerun()
@@ -105,102 +108,105 @@ def render_la_une_page(
                     st.error("Failed to generate daily summary")
 
     with col2:
-        if st.button("� Refresh", use_container_width=True):
+        if st.button("🔄 Refresh Summary", use_container_width=True):
             # Clear cached summary to force regeneration
             if daily_summary_key in st.session_state:
                 del st.session_state[daily_summary_key]
+            st.rerun()
+
+    with col3:
+        show_details = st.session_state.get("show_details", False)
+        if st.button(
+            "📊 Hide Details" if show_details else "📊 Show Details",
+            use_container_width=True,
+        ):
+            st.session_state.show_details = not show_details
             st.rerun()
 
     # Display the daily summary
     if daily_summary_key in st.session_state:
         summary_data = st.session_state[daily_summary_key]
 
-        # Summary metadata
-        col1, col2 = st.columns([3, 1])
+        # Summary header with metadata
+        st.markdown("### 🌟 Today's News Summary")
+
+        col1, col2, col3 = st.columns([2, 1, 1])
         with col1:
-            st.caption(f"� Summary based on {summary_data['article_count']} articles")
+            st.caption(
+                f"📊 Based on {summary_data['article_count']} articles from {summary_data['sources_count']} sources"
+            )
         with col2:
             generated_time = summary_data["generated_at"].strftime("%H:%M")
             st.caption(f"⏰ Generated at {generated_time}")
-
-        # The main summary content
-        st.markdown("### 🌟 Today's News Summary")
-
-        # Display the summary in a nice container
-        with st.container():
-            st.markdown(summary_data["summary"])
+        with col3:
+            date_str = summary_data["generated_at"].strftime("%B %d, %Y")
+            st.caption(f"📅 {date_str}")
 
         st.markdown("---")
 
-        # Optional: Show quick stats toggle
-        with st.expander("📊 View Article Breakdown"):
-            render_summary_analytics(recent_articles)
+        # The main summary content - prominently displayed
+        with st.container():
+            # Use a nice background container for the summary
+            st.markdown(
+                """
+                <div style="
+                    background-color: #f0f2f6;
+                    padding: 20px;
+                    border-radius: 10px;
+                    border-left: 5px solid #ff6b6b;
+                    margin: 10px 0;
+                ">
+                """,
+                unsafe_allow_html=True,
+            )
+
+            st.markdown(summary_data["summary"])
+
+            st.markdown("</div>", unsafe_allow_html=True)
+
+        # Optional detailed breakdown
+        if st.session_state.get("show_details", False):
+            st.markdown("---")
+            with st.expander("📊 Detailed Article Breakdown", expanded=True):
+                render_summary_analytics(recent_articles)
 
     else:
         # Encourage user to generate summary
         st.info(
-            "👆 Click 'Generate Today's Summary' to get a comprehensive overview of today's news!"
+            "👆 Click 'Generate Today's Summary' to get a comprehensive overview of today's news in one text!"
         )
 
         # Show a preview of what's available
-        st.markdown("### 📋 Available Articles")
-        st.write(
-            f"Ready to summarize **{len(recent_articles)} articles** from **{len(set(a.feed_url for a in recent_articles))} sources** published in the last 24 hours."
-        )
+        with st.container():
+            st.markdown("### 📋 Ready to Summarize")
+            st.write(
+                f"**{len(recent_articles)} articles** from **{len(set(a.feed_url for a in recent_articles))} sources** are ready to be summarized into your daily digest."
+            )
 
-        # Show top sources
-        feed_counts = {}
-        for article in recent_articles:
-            feed_counts[article.feed_url] = feed_counts.get(article.feed_url, 0) + 1
+            # Show top sources preview
+            if st.session_state.get("show_details", False):
+                feed_counts = {}
+                for article in recent_articles:
+                    feed_counts[article.feed_url] = (
+                        feed_counts.get(article.feed_url, 0) + 1
+                    )
 
-        if feed_counts:
-            st.markdown("**Top Sources:**")
-            sorted_feeds = sorted(
-                feed_counts.items(), key=lambda x: x[1], reverse=True
-            )[:5]
-            for feed_url, count in sorted_feeds:
-                # Try to get feed title or use URL
-                feeds = feed_manager.get_all_feeds()
-                feed_title = next(
-                    (f.title or f.url for f in feeds if f.url == feed_url), feed_url
-                )
-                st.write(f"• {feed_title}: {count} articles")
-            with st.spinner("Generating daily summary..."):
-                daily_summary = generate_comprehensive_daily_summary(
-                    recent_articles, ai_summarizer
-                )
-                if daily_summary:
-                    st.session_state.daily_summary = daily_summary
-                    st.success("Daily summary generated!")
-                else:
-                    st.error("Failed to generate daily summary")
-
-    with col3:
-        if st.button("📊 View Analytics"):
-            show_analytics = not st.session_state.get("show_analytics", False)
-            st.session_state.show_analytics = show_analytics
-
-    # Display daily summary if available
-    if "daily_summary" in st.session_state:
-        st.subheader("🌟 Daily Summary")
-        st.markdown("---")
-        summary_container = st.container()
-        with summary_container:
-            st.markdown(st.session_state.daily_summary)
-
-            # Add timestamp
-            st.caption(f"Generated on {datetime.now().strftime('%H:%M:%S')}")
-
-            # Clear summary button
-            if st.button("🗑️ Clear Summary"):
-                del st.session_state.daily_summary
-                st.rerun()
-
-        st.markdown("---")
-
-    # Display analytics if requested
-    if st.session_state.get("show_analytics", False):
-        render_summary_analytics(recent_articles)
+                if feed_counts:
+                    st.markdown("**Preview - Top Sources:**")
+                    sorted_feeds = sorted(
+                        feed_counts.items(), key=lambda x: x[1], reverse=True
+                    )[:5]
+                    for feed_url, count in sorted_feeds:
+                        # Try to get feed title or use URL
+                        feeds = feed_manager.get_all_feeds()
+                        feed_title = next(
+                            (f.title or f.url for f in feeds if f.url == feed_url),
+                            feed_url,
+                        )
+                        # Shorten long feed titles
+                        if len(feed_title) > 50:
+                            feed_title = feed_title[:50] + "..."
+                        st.write(f"• {feed_title}: {count} articles")
 
 
 def generate_comprehensive_daily_summary(
@@ -224,8 +230,8 @@ def generate_comprehensive_daily_summary(
         articles_content = []
 
         for article in articles[
-            :30
-        ]:  # Limit to first 30 articles to avoid token limits
+            :50
+        ]:  # Increased limit to 50 articles for better coverage
             # Use the best available content
             content = ""
             if article.has_summary:
@@ -233,8 +239,8 @@ def generate_comprehensive_daily_summary(
             elif article.has_content:
                 # Truncate long content to avoid token limits
                 content = (
-                    article.content[:800] + "..."
-                    if len(article.content) > 800
+                    article.content[:1000] + "..."
+                    if len(article.content) > 1000
                     else article.content
                 )
             elif article.description:
@@ -242,32 +248,39 @@ def generate_comprehensive_daily_summary(
             else:
                 content = article.title or "No content available"
 
-            # Format the article entry
+            # Format the article entry with source and timestamp
             title = article.title or "Untitled"
-            articles_content.append(f"**{title}**\n{content}")
+            time_info = ""
+            if article.created_at:
+                time_info = f" ({article.created_at.strftime('%H:%M')})"
+
+            articles_content.append(f"**{title}**{time_info}\n{content}")
 
         # Combine all articles into one text
         combined_content = "\n\n---\n\n".join(articles_content)
 
-        # Create a comprehensive prompt for daily summary
-        prompt = f"""Create a comprehensive daily news summary based on the following {len(articles)} articles from the last 24 hours.
+        # Create an enhanced prompt for daily summary focused on cohesive narrative
+        prompt = f"""You are a professional news editor creating a comprehensive daily digest. Based on the {len(articles)} articles from the last 24 hours below, create a single, cohesive narrative summary that flows naturally from topic to topic.
 
-Please provide:
-1. A brief executive summary (2-3 sentences) highlighting the most important developments
-2. Key themes and trends identified across all articles
-3. Major breaking news or significant events
-4. Notable developments by category/topic
-5. Important updates that readers should be aware of
+Requirements:
+1. Write as ONE continuous text (not bullet points or sections)
+2. Start with the most significant breaking news or developments
+3. Connect related stories and themes naturally in the narrative
+4. Include key details, numbers, and quotes where relevant
+5. Transition smoothly between different topics and regions
+6. End with a brief outlook or context for tomorrow
+7. Write in an engaging, journalistic style suitable for an informed reader
+8. Aim for 300-500 words
 
-Focus on synthesizing information rather than listing individual articles. Organize the content in a clear, engaging format that gives readers a complete picture of today's news landscape.
+Focus on creating a flowing narrative that gives readers a complete picture of today's news landscape, as if you were briefing someone who's been away and needs to catch up on everything important that happened today.
 
-Articles to summarize:
+Articles to synthesize:
 {combined_content}
 
-Please create a well-structured, comprehensive summary that captures the essence of today's news."""
+Write a comprehensive daily news summary:"""
 
-        # Generate the summary using AI
-        summary = ai_summarizer.generate_summary(prompt)
+        # Generate the summary using the specialized daily summary method
+        summary = ai_summarizer.generate_daily_summary(prompt)
 
         if not summary:
             return (
@@ -354,131 +367,3 @@ def render_summary_analytics(articles: List[Article]) -> None:
             st.write(f"{hour:02d}:00 │{bar}│ {count} articles")
     else:
         st.write("No timeline data available")
-
-    # Feed distribution
-    st.subheader("📡 Articles by Feed")
-    feed_distribution = {}
-    for article in articles:
-        # Get feed title or use URL as fallback
-        feed_key = article.feed_url
-        feed_distribution[feed_key] = feed_distribution.get(feed_key, 0) + 1
-
-    if feed_distribution:
-        # Sort by count and show top 10
-        sorted_feeds = sorted(
-            feed_distribution.items(), key=lambda x: x[1], reverse=True
-        )[:10]
-        feed_chart_data = {feed: count for feed, count in sorted_feeds}
-        st.bar_chart(feed_chart_data)
-
-    # Content status
-    st.subheader("📋 Content Status")
-    status_counts = {
-        "With Content": len([a for a in articles if a.has_content]),
-        "With Summary": len([a for a in articles if a.has_summary]),
-        "Complete": len([a for a in articles if a.is_complete]),
-        "Pending": len(
-            [a for a in articles if not a.has_content and not a.has_summary]
-        ),
-    }
-
-    col1, col2, col3, col4 = st.columns(4)
-    cols = [col1, col2, col3, col4]
-
-    for i, (status, count) in enumerate(status_counts.items()):
-        with cols[i]:
-            st.metric(status, count)
-
-
-def render_articles_by_category(
-    articles: List[Article], feed_manager: FeedManager
-) -> None:
-    """
-    Render articles grouped by feed/category
-
-    Args:
-        articles: List of articles to display
-        feed_manager: Feed manager service instance
-    """
-    st.subheader("📰 Articles by Feed")
-
-    # Group articles by feed
-    articles_by_feed = {}
-    for article in articles:
-        feed_url = article.feed_url
-        if feed_url not in articles_by_feed:
-            articles_by_feed[feed_url] = []
-        articles_by_feed[feed_url].append(article)
-
-    # Get feed information
-    feeds = feed_manager.get_all_feeds()
-    feed_info = {feed.url: feed for feed in feeds}
-
-    # Display articles by feed
-    for feed_url, feed_articles in articles_by_feed.items():
-        feed = feed_info.get(feed_url)
-        feed_title = feed.title if feed else feed_url
-
-        # Sort articles by creation time (newest first)
-        feed_articles.sort(key=lambda x: x.created_at or datetime.min, reverse=True)
-
-        with st.expander(
-            f"📡 {feed_title} ({len(feed_articles)} articles)", expanded=True
-        ):
-            for article in feed_articles[:10]:  # Show first 10 articles per feed
-                render_article_card(article)
-
-
-def render_article_card(article: Article) -> None:
-    """
-    Render a single article card
-
-    Args:
-        article: Article to display
-    """
-    # Article container
-    with st.container():
-        # Title with link
-        title = article.title or "Untitled Article"
-        if article.link:
-            st.markdown(f"**[{title}]({article.link})**")
-        else:
-            st.markdown(f"**{title}**")
-
-        # Article info
-        col1, col2, col3 = st.columns([2, 1, 1])
-
-        with col1:
-            if article.created_at:
-                time_ago = datetime.now() - article.created_at
-                if time_ago.days > 0:
-                    time_str = f"{time_ago.days}d ago"
-                elif time_ago.seconds > 3600:
-                    time_str = f"{time_ago.seconds // 3600}h ago"
-                else:
-                    time_str = f"{time_ago.seconds // 60}m ago"
-                st.caption(f"⏰ {time_str}")
-
-        with col2:
-            if article.has_content:
-                st.caption("📝 Content ✅")
-            else:
-                st.caption("📝 Content ❌")
-
-        with col3:
-            if article.has_summary:
-                st.caption("🤖 Summary ✅")
-            else:
-                st.caption("🤖 Summary ❌")
-
-        # Show description or summary
-        if article.has_summary:
-            with st.expander("🤖 AI Summary"):
-                st.write(article.summary)
-        elif article.description:
-            description = article.description
-            if len(description) > 200:
-                description = description[:200] + "..."
-            st.caption(description)
-
-        st.markdown("---")

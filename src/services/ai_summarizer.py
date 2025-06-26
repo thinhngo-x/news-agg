@@ -309,3 +309,58 @@ class AISummarizer:
         except Exception as e:
             self.logger.error(f"Error in bulk summarize: {e}")
             return 0
+
+    def generate_daily_summary(self, content: str) -> Optional[str]:
+        """
+        Generate a comprehensive daily news summary optimized for readability
+
+        Args:
+            content: Combined content from multiple articles to summarize
+
+        Returns:
+            Optional[str]: Generated daily summary if successful, None otherwise
+        """
+        if not self.client:
+            return "AI summarization unavailable - API key not configured"
+
+        try:
+            current_model = self.get_current_model()
+
+            # Test if the current model is available before using it
+            if not self.test_model_availability(current_model):
+                # Try to find an available model
+                available_models = self.get_available_models_for_user()
+                if not available_models:
+                    return "Error: No AI models available for your OpenAI project"
+
+                # Switch to the first available model
+                new_model = available_models[0]
+                self.config.ai_config.selected_model = new_model.model_id
+                self.logger.info(
+                    f"Switched from unavailable model {current_model} to {new_model.display_name}"
+                )
+                current_model = new_model.model_id
+
+            response = self.client.chat.completions.create(
+                model=current_model,
+                messages=[
+                    {
+                        "role": "system",
+                        "content": """You are a professional news editor creating daily news digests. Your task is to synthesize multiple news articles into a single, flowing narrative that reads like a comprehensive news briefing. Write in a clear, engaging style that connects related stories and provides context.""",
+                    },
+                    {"role": "user", "content": content},
+                ],
+                max_tokens=800,  # Increased for longer, more comprehensive summaries
+                temperature=0.3,  # Lower temperature for more focused, coherent output
+                timeout=self.config.ai_config.timeout,
+            )
+
+            summary_content = response.choices[0].message.content
+            if summary_content:
+                summary = summary_content.strip()
+                return str(summary) if summary else None
+            return None
+
+        except Exception as e:
+            self.logger.error(f"Error generating daily summary: {e}")
+            return f"Error generating daily summary: {str(e)}"
