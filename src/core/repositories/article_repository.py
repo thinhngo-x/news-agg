@@ -261,3 +261,86 @@ class ArticleRepository(BaseRepository):
                 f"Error getting articles from active feeds since {cutoff_time}: {e}"
             )
             raise DatabaseError(f"Failed to get articles from active feeds: {e}")
+
+    def get_articles(
+        self,
+        limit: int = 50,
+        offset: int = 0,
+        feed_id: Optional[int] = None,
+        status: Optional[ArticleStatus] = None,
+    ) -> List[Article]:
+        """Get articles with pagination and filtering"""
+        try:
+            with self.get_session() as session:
+                statement = select(Article)
+
+                # Apply filters
+                if feed_id:
+                    statement = statement.where(Article.feed_id == feed_id)
+                if status:
+                    statement = statement.where(Article.status == status)
+
+                # Apply pagination and ordering
+                statement = (
+                    statement
+                    .order_by(text("created_at DESC"))
+                    .offset(offset)
+                    .limit(limit)
+                )
+
+                return list(session.exec(statement))
+        except SQLAlchemyError as e:
+            logger.error(f"Error getting articles: {e}")
+            raise DatabaseError(f"Failed to get articles: {e}")
+
+    def count_articles(
+        self, feed_id: Optional[int] = None, status: Optional[ArticleStatus] = None
+    ) -> int:
+        """Count articles with filtering"""
+        try:
+            with self.get_session() as session:
+                statement = select(func.count(Article.id))
+
+                # Apply filters
+                if feed_id:
+                    statement = statement.where(Article.feed_id == feed_id)
+                if status:
+                    statement = statement.where(Article.status == status)
+
+                return session.exec(statement).one()
+        except SQLAlchemyError as e:
+            logger.error(f"Error counting articles: {e}")
+            raise DatabaseError(f"Failed to count articles: {e}")
+
+    def get_articles_needing_content_scrape(self) -> List[Article]:
+        """Get articles that need content scraping"""
+        try:
+            with self.get_session() as session:
+                statement = (
+                    select(Article)
+                    .where(Article.status == ArticleStatus.PENDING)
+                    .where(Article.content.is_(None))
+                    .order_by(text("created_at DESC"))
+                    .limit(100)  # Limit for performance
+                )
+                return list(session.exec(statement))
+        except SQLAlchemyError as e:
+            logger.error(f"Error getting articles needing content scrape: {e}")
+            raise DatabaseError(f"Failed to get articles needing content scrape: {e}")
+
+    def get_articles_needing_summary(self) -> List[Article]:
+        """Get articles that need AI summarization"""
+        try:
+            with self.get_session() as session:
+                statement = (
+                    select(Article)
+                    .where(Article.status == ArticleStatus.SCRAPED)
+                    .where(Article.summary.is_(None))
+                    .where(Article.content.is_not(None))
+                    .order_by(text("created_at DESC"))
+                    .limit(50)  # Limit for performance and API costs
+                )
+                return list(session.exec(statement))
+        except SQLAlchemyError as e:
+            logger.error(f"Error getting articles needing summary: {e}")
+            raise DatabaseError(f"Failed to get articles needing summary: {e}")

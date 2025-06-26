@@ -364,3 +364,54 @@ class AISummarizer:
         except Exception as e:
             self.logger.error(f"Error generating daily summary: {e}")
             return f"Error generating daily summary: {str(e)}"
+
+    def generate_summary_from_text(self, text: str) -> str:
+        """
+        Generate AI summary from arbitrary text (for daily summaries)
+
+        Args:
+            text: Text content to summarize
+
+        Returns:
+            str: Generated summary
+        """
+        if not self.client:
+            return "AI summarization unavailable - API key not configured"
+
+        try:
+            current_model = self.get_current_model()
+
+            # Test if the current model is available before using it
+            if not self.test_model_availability(current_model):
+                # Try to find an available model
+                available_models = self.get_available_models_for_user()
+                if not available_models:
+                    return "Error: No AI models available for your OpenAI project"
+
+                # Switch to the first available model
+                new_model = available_models[0]
+                self.config.ai_config.selected_model = new_model.model_id
+                current_model = new_model.model_id
+
+            response = self.client.chat.completions.create(
+                model=current_model,
+                messages=[
+                    {
+                        "role": "system",
+                        "content": "You are a professional news analyst. Create comprehensive, well-structured summaries that capture key themes and developments.",
+                    },
+                    {"role": "user", "content": text},
+                ],
+                max_tokens=2000,  # Allow longer summaries for comprehensive analysis
+                temperature=self.config.ai_config.temperature,
+                timeout=self.config.ai_config.timeout,
+            )
+
+            summary_content = response.choices[0].message.content
+            if summary_content:
+                return summary_content.strip()
+            return "Unable to generate summary"
+
+        except Exception as e:
+            self.logger.error(f"Error generating summary from text: {e}")
+            return f"Error generating summary: {str(e)}"
