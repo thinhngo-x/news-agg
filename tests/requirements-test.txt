@@ -1,0 +1,15 @@
+"""
+Test requirements for the News Aggregator project.
+These are additional dependencies needed for testing.
+"""
+
+# Testing framework
+pytest>=7.0.0
+pytest-cov>=4.0.0
+pytest-mock>=3.10.0
+
+# For mocking and testing
+responses>=0.23.0
+
+# For test coverage reporting
+coverage>=7.0.0

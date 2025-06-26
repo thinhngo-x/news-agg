@@ -1,0 +1,26 @@
+{
+  "database": {
+    "url": "sqlite:////tmp/tmpjnu9newq/test_news_aggregator.db",
+    "backup_enabled": true,
+    "backup_interval": 86400
+  },
+  "ai": {
+    "selected_model": "gpt-4o-mini",
+    "max_summary_length": 500,
+    "temperature": 0.3,
+    "timeout": 30,
+    "bulk_summarize_limit": 100
+  },
+  "feeds": {
+    "default_fetch_interval": 3600,
+    "max_articles_per_feed": 100,
+    "concurrent_fetches": 5,
+    "request_timeout": 30
+  },
+  "ui": {
+    "items_per_page": 20,
+    "theme": "light",
+    "sidebar_expanded": true,
+    "max_content_length": 10000
+  }
+}
